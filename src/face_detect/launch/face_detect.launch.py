@@ -36,8 +36,7 @@ def generate_launch_description():
                     "num_threads": 2,
                     "draw": True,
                 }],
-                extra_arguments=[{"use_intra_process_comms": True}]
-                
+                extra_arguments=[{"use_intra_process_comms": True}] 
             )
         ],
         output="screen",

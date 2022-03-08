@@ -5,6 +5,12 @@ using std::placeholders::_2;
 using sensor_msgs::msg::Image;
 using namespace std::chrono_literals;
 
+const cv::Scalar CV_COLOR_BLUE(255, 0, 0);
+const cv::Scalar CV_COLOR_GREEN(0, 255, 0);
+const cv::Scalar CV_COLOR_RED(0, 0, 255);
+const cv::Scalar CV_COLOR_YELLOW(0, 255, 255);
+const cv::HersheyFonts CV_FONT = cv::FONT_HERSHEY_COMPLEX_SMALL;
+
 namespace visual_composition
 {
 FaceDetect::FaceDetect(const rclcpp::NodeOptions & options): Node("face_detect", options)
@@ -44,7 +50,6 @@ void FaceDetect::imageSubCall(const Image::UniquePtr msg)
     auto ts = this->now();
     detector_->detect(cvFrame, faceInfo);
     float timeMs = (float)(this->now() - ts).seconds() * 1000;
-    RCLCPP_INFO(this->get_logger(), "detect %i faces in %.2f ms", (int)faceInfo.size(), timeMs);
 
     if (draw_)
     {
@@ -56,11 +61,19 @@ void FaceDetect::imageSubCall(const Image::UniquePtr msg)
             cv::rectangle(dstImage, pt1, pt2, cv::Scalar(0, 255, 0), 2);
             std::stringstream ss;
             ss << "score: " << std::setprecision(3) <<face.score;
-
-            cv::putText(dstImage, ss.str(), pt1, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 2);
+            cv::putText(dstImage, ss.str(), pt1, CV_FONT, 1, CV_COLOR_RED);
         }
+        // draw detection time
+        std::stringstream detectTime;
+        detectTime.precision(3);
+        detectTime << "detect time: " << timeMs << " ms";
+        cv::putText(dstImage, detectTime.str(), cv::Point(5, 20), CV_FONT, 1, CV_COLOR_RED);
         cv::imshow("face detect result", dstImage);
         cv::waitKey(1);
+    }
+    else
+    {
+        RCLCPP_INFO(this->get_logger(), "detect %i faces in %.2f ms", (int)faceInfo.size(), timeMs);
     }
 }
 
