@@ -20,6 +20,7 @@ private:
 
     std::shared_ptr<vpDetectorAprilTag> tagDetector_;
     std::string tagFamily_;
+    float detectTimeMs_;
 
     std::mutex mtx_;
     bool draw_;

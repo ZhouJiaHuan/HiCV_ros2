@@ -28,7 +28,10 @@ def generate_launch_description():
                 plugin="visual_composition::ApriltagDetect",
                 name="apriltag_detect_component",
                 parameters=[{
-                    "tag_family": "36h11",
+                    "tag_family": "CUSTOM48h12",
+                    "decimate": 2.0,
+                    "sigma": 0.0,
+                    "threads": 2,
                     "show": True,
                 }],
                 extra_arguments=[{"use_intra_process_comms": True}]

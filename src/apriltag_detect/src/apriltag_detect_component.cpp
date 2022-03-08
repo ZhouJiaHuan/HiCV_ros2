@@ -6,11 +6,20 @@ using std::placeholders::_2;
 using std::stringstream;
 using namespace std::chrono_literals;
 
+const cv::Scalar CV_COLOR_BLUE(255, 0, 0);
+const cv::Scalar CV_COLOR_GREEN(0, 255, 0);
+const cv::Scalar CV_COLOR_RED(0, 0, 255);
+const cv::Scalar CV_COLOR_YELLOW(0, 255, 255);
+const cv::HersheyFonts CV_FONT = cv::FONT_HERSHEY_COMPLEX_SMALL;
+
 namespace visual_composition
 {
 ApriltagDetect::ApriltagDetect(const rclcpp::NodeOptions & options): Node("apriltag_detect", options)
 {
     declare_parameter<std::string>("tag_family", "36h11");
+    declare_parameter<float>("decimate", 1.5);
+    declare_parameter<float>("sigma", 0.0);
+    declare_parameter<int>("threads", 2);
     declare_parameter<bool>("show", true);
     get_parameter("tag_family", tagFamily_);
     get_parameter("show", draw_);
@@ -28,13 +37,44 @@ ApriltagDetect::ApriltagDetect(const rclcpp::NodeOptions & options): Node("april
     {
         tagDetector_ = std::make_shared<vpDetectorAprilTag>(vpDetectorAprilTag::TAG_25h7);
     }
+    else if (tagFamily_ == "16h5")
+    {
+         tagDetector_ = std::make_shared<vpDetectorAprilTag>(vpDetectorAprilTag::TAG_16h5);
+    }
+    else if (tagFamily_ == "CIRCLE21h7")
+    {
+         tagDetector_ = std::make_shared<vpDetectorAprilTag>(vpDetectorAprilTag::TAG_CIRCLE21h7);
+    }
+    else if (tagFamily_ == "STANDARD41h12")
+    {
+         tagDetector_ = std::make_shared<vpDetectorAprilTag>(vpDetectorAprilTag::TAG_STANDARD41h12);
+    }
+    else if (tagFamily_ == "STANDARD52h13")
+    {
+         tagDetector_ = std::make_shared<vpDetectorAprilTag>(vpDetectorAprilTag::TAG_STANDARD52h13);
+    }
+    else if (tagFamily_ == "CIRCLE49h12")
+    {
+         tagDetector_ = std::make_shared<vpDetectorAprilTag>(vpDetectorAprilTag::TAG_CIRCLE49h12);
+    }
+    else if (tagFamily_ == "CUSTOM48h12")
+    {
+         tagDetector_ = std::make_shared<vpDetectorAprilTag>(vpDetectorAprilTag::TAG_CUSTOM48h12);
+    }
     else
     {
         RCLCPP_ERROR(get_logger(), "unsupported apriltag family: %s!", tagFamily_.c_str());
         rclcpp::shutdown();
     }
-    tagDetector_->setAprilTagNbThreads(2);
-    tagDetector_->setAprilTagQuadDecimate(1.0);
+    float decimate, sigma;
+    int threads;
+    get_parameter("decimate", decimate);
+    get_parameter("sigma", sigma);
+    get_parameter("threads", threads);
+    tagDetector_->setAprilTagQuadDecimate(decimate);
+    tagDetector_->setAprilTagQuadSigma(sigma);
+    tagDetector_->setAprilTagNbThreads(threads);
+
 
     // topics
     imageSub_= create_subscription<Image>("camera_stream", rclcpp::SensorDataQoS(),
@@ -58,7 +98,7 @@ void ApriltagDetect::imageSubCall(const Image::UniquePtr msg)
     auto ts = this->now();
     tagDetector_->detect(I);
     int tagNum = tagDetector_->getNbObjects();
-    float timeMs = (float)(this->now() - ts).seconds() * 1000;
+    detectTimeMs_ = (float)(this->now() - ts).seconds() * 1000;
     
     if (draw_)
     {
@@ -69,7 +109,7 @@ void ApriltagDetect::imageSubCall(const Image::UniquePtr msg)
     }
     else
     {
-        RCLCPP_INFO(this->get_logger(), "detect %i objects in %.2f ms", tagNum, timeMs);
+        RCLCPP_INFO(this->get_logger(), "detect %i objects in %.2f ms", tagNum, detectTimeMs_);
     }
     
 }
@@ -86,25 +126,32 @@ void ApriltagDetect::drawResult(cv::Mat &cvImg)
         {
             p1 = cv::Point(poly[i].get_u(), poly[i].get_v());
             p2 = cv::Point(poly[i+1].get_u(), poly[i+1].get_v());
-            cv::line(cvImg, p1, p2, cv::Scalar(255, 0, 0), 2);
+            cv::line(cvImg, p1, p2, CV_COLOR_BLUE, 2);
         }
         p1 = cv::Point(poly[0].get_u(), poly[0].get_v());
         p2 = cv::Point(poly.back().get_u(), poly.back().get_v());
-        cv::line(cvImg, p1, p2, cv::Scalar(255, 0, 0), 2);
+        cv::line(cvImg, p1, p2, CV_COLOR_BLUE, 2);
 
         for (size_t i=0; i< poly.size(); i++)
         {
             stringstream ss;
             ss << i;
             cv::Point p(poly[i].get_u(), poly[i].get_v());
-            cv::putText(cvImg, ss.str(), p, cv::FONT_HERSHEY_COMPLEX_SMALL, 1, cv::Scalar(0, 0, 255), 1);
+            cv::putText(cvImg, ss.str(), p, CV_FONT, 1, CV_COLOR_RED, 1);
         }
         
         // draw apriltag message
         std::string tagMsg = tagDetector_->getMessage(i);
-        cv::putText(cvImg, tagMsg, p1, cv::FONT_HERSHEY_COMPLEX_SMALL, 1, cv::Scalar(0, 0, 255), 1);
+        cv::putText(cvImg, tagMsg, p1, CV_FONT, 1, CV_COLOR_RED, 1);
     }
+
+    // draw detection time
+    std::stringstream detectTime;
+    detectTime.precision(3);
+    detectTime << "detect time: " << detectTimeMs_ << " ms";
+    cv::putText(cvImg, detectTime.str(), cv::Point(5, 20), CV_FONT, 1, CV_COLOR_RED);
 }
+
 }
 
 #include "rclcpp_components/register_node_macro.hpp"
